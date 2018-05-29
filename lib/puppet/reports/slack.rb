@@ -41,23 +41,36 @@ Run Environment    = %s
     end
     message.strip!
     color = nil
+    post_report = false
 
-    if statuses.include?(self.status)
+    # Only send pending changes message when there are no changes made
+    if statuses.include?('pending') and self.status == 'unchanged' and self.noop_pending
+      pretxt = ":exclamation: Puppet status: *pending changes*"
+      color = '#80699B'
+      post_report = true
+
+    elsif statuses.include?(self.status)
       case self.status
       when "changed"
         pretxt = ":congratulations: #{pretxt}"
         color = 'good'
+        post_report = true
       when "failed"
         pretxt = ":warning: #{pretxt}"
         color = 'warning'
+        post_report = true
       when "unchanged"
         pretxt = ":zzz: #{pretxt}"
         color = '#cccccc'
+        post_report = true
       else
         pretxt = ":grey_question: #{pretxt}"
         color = 'warning'
+        post_report = true
       end
+    end
 
+    if post_report
       payload = make_payload(pretxt, message, color)
 
       @config["channels"].each do |channel|
