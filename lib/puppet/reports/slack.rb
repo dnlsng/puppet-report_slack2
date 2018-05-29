@@ -14,6 +14,17 @@ Puppet::Reports.register_report(:slack) do
     @config["statuses"] ||= "changed,failed"
     statuses = @config["statuses"].split(",")
     report_url = @config["report_url"] || ''
+    failed_hosts = @config["failed_hosts"] || ['.*']
+    pending_hosts = @config["pending_hosts"] || ['.*']
+    changed_hosts = @config["changed_hosts"] || ['.*']
+    unchanged_hosts = @config["unchanged_hosts"] || ['.*']
+
+    # Convert to an array of regexp
+    failed_hosts.map! {|r| Regexp.new(r)}
+    pending_hosts.map! {|r| Regexp.new(r)}
+    changed_hosts.map! {|r| Regexp.new(r)}
+    unchanged_hosts.map! {|r| Regexp.new(r)}
+
     if report_url.include? '%h'
       report_url ["%h"] = self.host
     end
@@ -47,22 +58,26 @@ Run Environment    = %s
     if statuses.include?('pending') and self.status == 'unchanged' and self.noop_pending
       pretxt = ":exclamation: Puppet status: *pending changes*"
       color = '#80699B'
-      post_report = true
+      re = Regexp.union(pending_hosts)
+      post_report = self.host.match(re)
 
     elsif statuses.include?(self.status)
       case self.status
       when "changed"
         pretxt = ":congratulations: #{pretxt}"
         color = 'good'
-        post_report = true
+        re = Regexp.union(changed_hosts)
+        post_report = self.host.match(re)
       when "failed"
         pretxt = ":warning: #{pretxt}"
         color = 'warning'
-        post_report = true
+        re = Regexp.union(failed_hosts)
+        post_report = self.host.match(re)
       when "unchanged"
         pretxt = ":zzz: #{pretxt}"
         color = '#cccccc'
-        post_report = true
+        re = Regexp.union(unchanged_hosts)
+        post_report = self.host.match(re)
       else
         pretxt = ":grey_question: #{pretxt}"
         color = 'warning'
